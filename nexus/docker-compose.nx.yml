@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: nexus
+    restart: always
+    ports:
+      - "8081:8081"   # Nexus Web UI & REST API / Maven
+      - "8091:8091"   # Docker Hosted Registry (Push/Pull)
+      - "8092:8092"   # Docker Group Registry
+      - "8093:8093"   # Docker Proxy Registry
+    volumes:
+      - nexus-data:/nexus-data
+
+volumes:
+  nexus-data:
+    driver: local

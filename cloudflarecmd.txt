@@ -1,20 +1,12 @@
-
-./cloudflared tunnel --protocol http2 --http-host-header "localhost" --url http://127.0.0.1:8081
-.\cloudflared.exe tunnel --url http://127.0.0.1:8081
-// with closing terminal 
-nohup ./cloudflared tunnel --url http://localhost:8085 > cloudflare.log 2>&1 &
-//
+docker exec -it nexus cat /nexus-data/admin.password
 
 
-┌────────────────────────────────────────────────────────────────────────┐
-│                        DOCKER NETWORK (ci_net)                         │
-│                                                                        │
-│   ┌──────────────────┐  1. Sends analysis payload   ┌───────────────┐  │
-│   │ Jenkins          │─────────────────────────────►│ SonarQube     │  │
-│   │ Container        │   http://sonarqube:9000      │ Container     │  │
-│   │                  │                              │               │  │
-│   │                  │  2. Sends Quality Gate back  │               │  │
-│   │                  │◄─────────────────────────────│               │  │
-│   └──────────────────┘  http://jenkins:8080/...     └───────────────┘  │
-│                                                                        │
-└────────────────────────────────────────────────────────────────────────┘
+// after repo creating 
+# 1. Log in to your hosted storage locker
+docker login localhost:8091 -u admin -p YOUR_PASSWORD
+
+# 2. Tag your image to point to port 8091
+docker tag my-app:latest localhost:8091/my-app:latest
+
+# 3. Push it directly into Nexus
+docker push localhost:8091/my-app:latest
