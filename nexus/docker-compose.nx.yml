@@ -11,7 +11,7 @@ services:
       - "8092:8092"   # Docker Group Registry
       - "8093:8093"   # Docker Proxy Registry
     volumes:
-      - nexus-data:/nexus-data
+      - nexus-data:/nexus-data  
 
 volumes:
   nexus-data:
