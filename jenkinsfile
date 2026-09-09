@@ -35,8 +35,47 @@ pipeline {
         stage('Checkout & Setup Env') {
             steps {
                 checkout scm
-                withCredentials([file(credentialsId: '01e-com-env-file', variable: 'ENV_FILE')]) {
-                    sh 'cp "$ENV_FILE" .env'
+                // withCredentials([file(credentialsId: '01e-com-env-file', variable: 'ENV_FILE')]) {
+                //     sh 'cp "$ENV_FILE" .env'
+                // }
+                // steps {
+                //     checkout scm
+
+                    withCredentials([
+            file(credentialsId: '01e-com-env-file', variable: 'ENV_FILE'),
+            file(credentialsId: 'nexus-settings', variable: 'NEXUS_SETTINGS_FILE'),
+            usernamePassword(
+                credentialsId: 'nexus-credentials',
+                usernameVariable: 'NEXUS_USER',
+                passwordVariable: 'NEXUS_PASS'
+            )
+        ]) {
+                        sh '''
+                echo "Preparing application environment..."
+                cp "$ENV_FILE" .env
+
+                echo "Preparing Maven Nexus configuration..."
+                mkdir -p "$HOME/.m2"
+
+                cp "$NEXUS_SETTINGS_FILE" "$HOME/.m2/settings.xml"
+
+                sed -i \
+                    -e "s/NEXUS_USER_PLACEHOLDER/$NEXUS_USER/g" \
+                    -e "s/NEXUS_PASS_PLACEHOLDER/$NEXUS_PASS/g" \
+                    "$HOME/.m2/settings.xml"
+
+                chmod 600 "$HOME/.m2/settings.xml"
+
+                echo "Maven settings installed at:"
+                echo "$HOME/.m2/settings.xml"
+
+                echo "Verifying Maven effective settings..."
+                ./gateway_service/mvnw help:effective-settings \
+                    -Doutput="$WORKSPACE/effective-settings.xml"
+
+                echo "Nexus Maven configuration prepared."
+            '''
+        // }
                 }
             }
         }
@@ -150,31 +189,33 @@ pipeline {
                 }
             }
             steps {
-                withCredentials([
-                                    usernamePassword(
-                                    credentialsId: 'nexus-credentials',
-                                    usernameVariable: 'NEXUS_USERNAME',
-                                    passwordVariable: 'NEXUS_PASSWORD'
-                                    ),
-                                    file(
-                                    credentialsId: 'nexus-settings',
-                                    variable: 'NEXUS_SETTINGS_FILE'
-                                    )
-                                        ]) {
+                // withCredentials([
+                //                     usernamePassword(
+                //                     credentialsId: 'nexus-credentials',
+                //                     usernameVariable: 'NEXUS_USERNAME',
+                //                     passwordVariable: 'NEXUS_PASSWORD'
+                //                     ),
+                //                     file(
+                //                     credentialsId: 'nexus-settings',
+                //                     variable: 'NEXUS_SETTINGS_FILE'
+                //                     )
+                //                         ]) {
+                    // sh '''
+                    //     set -e
+
+                    //     echo "=========================================="
+                    //     echo "Preparing Maven settings.xml..."
+                    //     echo "=========================================="
+
+                    //     mkdir -p ~/.m2
+                    //     cp "$NEXUS_SETTINGS_FILE" ~/.m2/settings.xml
+
+                    //     # Replace placeholders in the uploaded settings.xml
+                    //     sed -i "s|NEXUS_USER_PLACEHOLDER|${NEXUS_USERNAME}|g" ~/.m2/settings.xml
+                    //     sed -i "s|NEXUS_PASS_PLACEHOLDER|${NEXUS_PASSWORD}|g" ~/.m2/settings.xml
+                    // '''
                     sh '''
                         set -e
-
-                        echo "=========================================="
-                        echo "Preparing Maven settings.xml..."
-                        echo "=========================================="
-
-                        mkdir -p ~/.m2
-                        cp "$NEXUS_SETTINGS_FILE" ~/.m2/settings.xml
-
-                        # Replace placeholders in the uploaded settings.xml
-                        sed -i "s|NEXUS_USER_PLACEHOLDER|${NEXUS_USERNAME}|g" ~/.m2/settings.xml
-                        sed -i "s|NEXUS_PASS_PLACEHOLDER|${NEXUS_PASSWORD}|g" ~/.m2/settings.xml
-
                         # Deploy all 6 microservices to Nexus
                         for service in ${JAVA_SERVICES}; do
                             echo "=========================================="
@@ -182,12 +223,12 @@ pipeline {
                             echo "=========================================="
                             (cd "$service" && ./mvnw deploy -DskipTests)
                         done
-                        
+
                         echo "=========================================="
                         echo "✅ All Maven artifacts deployed successfully!"
                         echo "=========================================="
-                        '''
-                            }
+                    '''
+                                        }
             }
         }
 
@@ -212,8 +253,12 @@ pipeline {
                         echo "Logging into Nexus Docker Registry..."
                         echo "=========================================="
 
+                        # Resolve Nexus IP since Docker daemon isn't on ci_net
+                        NEXUS_IP=$(getent hosts nexus | awk '{ print $1 }')
+                        echo "Nexus resolved to: ${NEXUS_IP}"
+
                         # Login to Nexus Docker Registry (hosted on port 8091)
-                        echo "${DOCKER_REGISTRY_PASS}" | docker login -u "${DOCKER_REGISTRY_USER}" --password-stdin nexus:8091
+                        echo "${DOCKER_REGISTRY_PASS}" | docker login -u "${DOCKER_REGISTRY_USER}" --password-stdin ${NEXUS_IP}:8091
 
                         echo "=========================================="
                         echo "Tagging and pushing Docker images..."
@@ -222,7 +267,7 @@ pipeline {
                         # Tag and push images for each service
                         for service in ${JAVA_SERVICES}; do
                             SERVICE_IMAGE="${APP_NAME}-${service}"
-                            NEXUS_REGISTRY="nexus:8091"
+                            NEXUS_REGISTRY="${NEXUS_IP}:8091"
                             IMAGE_TAG="${NEXUS_REGISTRY}/${SERVICE_IMAGE}:${BUILD_NUMBER}"
                             LATEST_TAG="${NEXUS_REGISTRY}/${SERVICE_IMAGE}:latest"
 
@@ -232,14 +277,14 @@ pipeline {
 
                             echo "Pushing ${IMAGE_TAG}..."
                             docker push "${IMAGE_TAG}"
-                            
+
                             echo "Pushing ${LATEST_TAG}..."
                             docker push "${LATEST_TAG}"
                         done
 
                         # Also push frontend image
                         FRONTEND_IMAGE="01e_com-frontend"
-                        NEXUS_REGISTRY="nexus:8091"
+                        NEXUS_REGISTRY="${NEXUS_IP}:8091"
                         FRONTEND_TAG="${NEXUS_REGISTRY}/${FRONTEND_IMAGE}:${BUILD_NUMBER}"
                         FRONTEND_LATEST="${NEXUS_REGISTRY}/${FRONTEND_IMAGE}:latest"
 
@@ -249,7 +294,7 @@ pipeline {
 
                         echo "Pushing ${FRONTEND_TAG}..."
                         docker push "${FRONTEND_TAG}"
-                        
+
                         echo "Pushing ${FRONTEND_LATEST}..."
                         docker push "${FRONTEND_LATEST}"
 
@@ -260,7 +305,7 @@ pipeline {
                         # Logout from Docker registry
                         docker logout nexus:8091
                         '''
-                            }
+                                        }
             }
         }
 
