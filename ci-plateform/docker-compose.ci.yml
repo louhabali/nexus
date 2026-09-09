@@ -32,8 +32,7 @@ services:
       # --- ENVIRONMENT VARIABLES FOR GROOVY INIT ---
     volumes:
       - jenkins_home:/var/jenkins_home
-      # - /var/run/docker.sock:/var/run/docker.sock
-      - /run/user/${UID}/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - ci_net
 
