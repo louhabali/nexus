@@ -228,7 +228,7 @@ pipeline {
                         echo "✅ All Maven artifacts deployed successfully!"
                         echo "=========================================="
                     '''
-                                        }
+                                        // }
             }
         }
 
