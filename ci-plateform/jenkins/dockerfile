@@ -20,7 +20,8 @@ RUN apt-get update && \
         docker-compose-plugin && \
     rm -rf /var/lib/apt/lists/*
 
-USER jenkins
+# Stay as root for Docker access
+# USER jenkins
 
 # Copy plugins list and install via plugin manager
 COPY --chown=jenkins:jenkins plugins.txt /usr/share/jenkins/ref/plugins.txt
