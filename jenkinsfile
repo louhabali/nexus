@@ -156,35 +156,35 @@ pipeline {
                         echo "Creating Maven settings.xml with Nexus credentials..."
                         mkdir -p ~/.m2
                         cat > ~/.m2/settings.xml << 'EOF'
-                                <?xml version="1.0" encoding="UTF-8"?>
-                                <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-                                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                                xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 
-                                http://maven.apache.org/xsd/settings-1.0.0.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 
+http://maven.apache.org/xsd/settings-1.0.0.xsd">
                                 
-                                <servers>
-                                    <server>
-                                    <id>nexus-releases</id>
-                                    <username>NEXUS_USER_PLACEHOLDER</username>
-                                    <password>NEXUS_PASS_PLACEHOLDER</password>
-                                    </server>
-                                    <server>
-                                    <id>nexus-snapshots</id>
-                                    <username>NEXUS_USER_PLACEHOLDER</username>
-                                    <password>NEXUS_PASS_PLACEHOLDER</password>
-                                    </server>
-                                </servers>
+<servers>
+    <server>
+    <id>nexus-releases</id>
+    <username>NEXUS_USER_PLACEHOLDER</username>
+    <password>NEXUS_PASS_PLACEHOLDER</password>
+    </server>
+    <server>
+    <id>nexus-snapshots</id>
+    <username>NEXUS_USER_PLACEHOLDER</username>
+    <password>NEXUS_PASS_PLACEHOLDER</password>
+    </server>
+</servers>
 
-                                <mirrors>
-                                    <mirror>
-                                    <id>nexus</id>
-                                    <mirrorOf>*,!nexus-releases,!nexus-snapshots</mirrorOf>
-                                    <url>http://nexus:8081/repository/maven-public/</url>
-                                    </mirror>
-                                </mirrors>
+<mirrors>
+    <mirror>
+    <id>nexus</id>
+    <mirrorOf>*,!nexus-releases,!nexus-snapshots</mirrorOf>
+    <url>http://nexus:8081/repository/maven-public/</url>
+    </mirror>
+</mirrors>
 
-                                </settings>
-                                EOF
+</settings>
+EOF
                         
                         # Replace placeholders with actual credentials
                         sed -i "s|NEXUS_USER_PLACEHOLDER|${NEXUS_USERNAME}|g" ~/.m2/settings.xml
