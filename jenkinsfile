@@ -146,7 +146,7 @@ pipeline {
         stage('Deploy to Nexus') {
             when {
                 expression {
-                    return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH?.endsWith('main')
+                    return env.BRANCH_NAME == 'pipeline' || env.GIT_BRANCH == 'origin/pipeline' || env.GIT_BRANCH?.endsWith('pipeline')
                 }
             }
             steps {
