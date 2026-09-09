@@ -143,7 +143,7 @@ pipeline {
             }
         }
 
-        stage('Deploy to Nexus') {
+        stage('Deploy Maven Artifacts to Nexus') {
             when {
                 expression {
                     return env.BRANCH_NAME == 'pipeline' || env.GIT_BRANCH == 'origin/pipeline' || env.GIT_BRANCH?.endsWith('pipeline')
@@ -164,21 +164,101 @@ pipeline {
                     sh '''
                         set -e
 
-                            echo "Preparing Maven settings.xml..."
+                        echo "=========================================="
+                        echo "Preparing Maven settings.xml..."
+                        echo "=========================================="
 
-                            mkdir -p ~/.m2
+                        mkdir -p ~/.m2
+                        cp "$NEXUS_SETTINGS_FILE" ~/.m2/settings.xml
 
-                            cp "$NEXUS_SETTINGS_FILE" ~/.m2/settings.xml
+                        # Replace placeholders in the uploaded settings.xml
+                        sed -i "s|NEXUS_USER_PLACEHOLDER|${NEXUS_USERNAME}|g" ~/.m2/settings.xml
+                        sed -i "s|NEXUS_PASS_PLACEHOLDER|${NEXUS_PASSWORD}|g" ~/.m2/settings.xml
 
-                            # Replace placeholders in the uploaded settings.xml
-                            sed -i "s|NEXUS_USER_PLACEHOLDER|${NEXUS_USERNAME}|g" ~/.m2/settings.xml
-                            sed -i "s|NEXUS_PASS_PLACEHOLDER|${NEXUS_PASSWORD}|g" ~/.m2/settings.xml
+                        # Deploy all 6 microservices to Nexus
+                        for service in ${JAVA_SERVICES}; do
+                            echo "=========================================="
+                            echo "Deploying ${service} artifacts to Nexus..."
+                            echo "=========================================="
+                            (cd "$service" && ./mvnw deploy -DskipTests)
+                        done
+                        
+                        echo "=========================================="
+                        echo "✅ All Maven artifacts deployed successfully!"
+                        echo "=========================================="
+                        '''
+                            }
+            }
+        }
 
-                            echo "Deploying gateway_service artifacts to Nexus..."
+        stage('Push Docker Images to Nexus Registry') {
+            when {
+                expression {
+                    return env.BRANCH_NAME == 'pipeline' || env.GIT_BRANCH == 'origin/pipeline' || env.GIT_BRANCH?.endsWith('pipeline')
+                }
+            }
+            steps {
+                withCredentials([
+                                    usernamePassword(
+                                    credentialsId: 'docker-registry-credentials',
+                                    usernameVariable: 'DOCKER_REGISTRY_USER',
+                                    passwordVariable: 'DOCKER_REGISTRY_PASS'
+                                    )
+                                        ]) {
+                    sh '''
+                        set -e
 
-                            cd gateway_service
+                        echo "=========================================="
+                        echo "Logging into Nexus Docker Registry..."
+                        echo "=========================================="
 
-                            ./mvnw deploy -DskipTests
+                        # Login to Nexus Docker Registry (hosted on port 8091)
+                        echo "${DOCKER_REGISTRY_PASS}" | docker login -u "${DOCKER_REGISTRY_USER}" --password-stdin nexus:8091
+
+                        echo "=========================================="
+                        echo "Tagging and pushing Docker images..."
+                        echo "=========================================="
+
+                        # Tag and push images for each service
+                        for service in ${JAVA_SERVICES}; do
+                            SERVICE_IMAGE="${APP_NAME}-${service}"
+                            NEXUS_REGISTRY="nexus:8091"
+                            IMAGE_TAG="${NEXUS_REGISTRY}/${SERVICE_IMAGE}:${BUILD_NUMBER}"
+                            LATEST_TAG="${NEXUS_REGISTRY}/${SERVICE_IMAGE}:latest"
+
+                            echo "Tagging image: ${SERVICE_IMAGE} -> ${IMAGE_TAG}"
+                            docker tag "${SERVICE_IMAGE}:latest" "${IMAGE_TAG}"
+                            docker tag "${SERVICE_IMAGE}:latest" "${LATEST_TAG}"
+
+                            echo "Pushing ${IMAGE_TAG}..."
+                            docker push "${IMAGE_TAG}"
+                            
+                            echo "Pushing ${LATEST_TAG}..."
+                            docker push "${LATEST_TAG}"
+                        done
+
+                        # Also push frontend image
+                        FRONTEND_IMAGE="01e_com-frontend"
+                        NEXUS_REGISTRY="nexus:8091"
+                        FRONTEND_TAG="${NEXUS_REGISTRY}/${FRONTEND_IMAGE}:${BUILD_NUMBER}"
+                        FRONTEND_LATEST="${NEXUS_REGISTRY}/${FRONTEND_IMAGE}:latest"
+
+                        echo "Tagging frontend image: ${FRONTEND_IMAGE} -> ${FRONTEND_TAG}"
+                        docker tag "${FRONTEND_IMAGE}:latest" "${FRONTEND_TAG}"
+                        docker tag "${FRONTEND_IMAGE}:latest" "${FRONTEND_LATEST}"
+
+                        echo "Pushing ${FRONTEND_TAG}..."
+                        docker push "${FRONTEND_TAG}"
+                        
+                        echo "Pushing ${FRONTEND_LATEST}..."
+                        docker push "${FRONTEND_LATEST}"
+
+                        echo "=========================================="
+                        echo "✅ All Docker images pushed successfully!"
+                        echo "=========================================="
+
+                        # Logout from Docker registry
+                        docker logout nexus:8091
                         '''
                             }
             }

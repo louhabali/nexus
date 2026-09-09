@@ -100,6 +100,20 @@ def envSecretFile = new FileCredentialsImpl(
 )
 store.addCredentials(domain, envSecretFile)
 
+// C) Docker Registry Credentials ('docker-registry-credentials')
+println "    -> Adding Docker Registry Credentials ('docker-registry-credentials')"
+def dockerRegistryUser = System.getenv('DOCKER_REGISTRY_USER') ?: "admin"
+def dockerRegistryPass = System.getenv('DOCKER_REGISTRY_PASS') ?: "admin123"
+
+def dockerRegistryCred = new UsernamePasswordCredentialsImpl(
+    CredentialsScope.GLOBAL,
+    "docker-registry-credentials",
+    "Nexus Docker Registry Push Credentials",
+    dockerRegistryUser,
+    dockerRegistryPass
+)
+store.addCredentials(domain, dockerRegistryCred)
+
 // configuring SonarQube Global Installation
 println "--> Configuring SonarQube Global Installation..."
 try {

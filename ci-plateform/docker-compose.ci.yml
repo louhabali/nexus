@@ -84,6 +84,7 @@ services:
     image: sonatype/nexus3:latest
     container_name: nexus
     restart: always
+    user: nexus
     ports:
       - "8081:8081" # Nexus Web UI & REST API / Maven
       - "8091:8091" # Docker Hosted Registry (Push/Pull)
