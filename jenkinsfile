@@ -255,7 +255,7 @@ pipeline {
                         echo "=========================================="
 
                         # Resolve Nexus IP since Docker daemon isn't on ci_net
-                        NEXUS_IP=nexus
+                        NEXUS_IP=localhost
                         echo "Nexus resolved to: ${NEXUS_IP}"
 
                         # Login to Nexus Docker Registry (hosted on port 8091)
