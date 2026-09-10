@@ -68,13 +68,13 @@ pipeline {
 
                 echo "Maven settings installed at:"
                 echo "$HOME/.m2/settings.xml"
-
-                echo "Verifying Maven effective settings..."
-                ./gateway_service/mvnw help:effective-settings \
-                    -Doutput="$WORKSPACE/effective-settings.xml"
-
-                echo "Nexus Maven configuration prepared."
             '''
+
+                //echo "Nexus Maven configuration prepared."
+                // echo "Verifying Maven effective settings..."
+                // ./gateway_service/mvnw help:effective-settings \
+                //     -Doutput="$WORKSPACE/effective-settings.xml"
+
         // }
                 }
             }
