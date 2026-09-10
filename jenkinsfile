@@ -18,6 +18,7 @@ pipeline {
         SONAR_HOST_URL  = 'http://sonarqube:9000'
         // JAVA_SERVICES   = 'gateway_service user_service product_service media_service cart_service'
         JAVA_SERVICES   = 'gateway_service user_service product_service media_service cart_service order_service'
+        JAVA_SERVICES_IMAGES   = 'gateway user-service product-service media-service cart-service order-service'
         FRONTEND_PORT   = '8443'
         GATEWAY_PORT    = '8089'
         E2E_BASE_URL    = 'https://frontend:8443'
@@ -266,7 +267,7 @@ pipeline {
                         echo "=========================================="
 
                         # Tag and push images for each service
-                        for service in ${JAVA_SERVICES}; do
+                        for service in ${JAVA_SERVICES_IMAGES}; do
                             SERVICE_IMAGE="${APP_NAME}-${service}"
                             NEXUS_REGISTRY="${NEXUS_IP}:8091"
                             IMAGE_TAG="${NEXUS_REGISTRY}/${SERVICE_IMAGE}:${BUILD_NUMBER}"
