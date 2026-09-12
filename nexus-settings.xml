@@ -23,71 +23,42 @@
   </servers>
 
   <mirrors>
+    <!-- Catch-all mirror for all repositories -->
     <mirror>
       <id>nexus</id>
-      <mirrorOf>*,!nexus-releases,!nexus-snapshots</mirrorOf>
+      <mirrorOf>*</mirrorOf>
       <name>Nexus Repository Group</name>
       <url>http://nexus:8081/repository/maven-public/</url>
+      <blocked>false</blocked>
+    </mirror>
+
+    <!-- Explicitly override Maven's built-in default HTTP blocker -->
+    <mirror>
+      <id>maven-default-http-blocker</id>
+      <mirrorOf>external:dummy:*</mirrorOf>
+      <name>Disable Default HTTP Blocker</name>
+      <url>http://0.0.0.0/</url>
+      <blocked>false</blocked>
     </mirror>
   </mirrors>
 
   <profiles>
     <profile>
       <id>nexus</id>
-      
       <repositories>
         <repository>
-          <id>nexus-releases</id>
-          <name>Nexus Releases</name>
-          <url>http://nexus:8081/repository/maven-releases/</url>
-          <releases>
-            <enabled>true</enabled>
-            <updatePolicy>never</updatePolicy>
-          </releases>
-          <snapshots>
-            <enabled>false</enabled>
-          </snapshots>
-        </repository>
-
-        <repository>
-          <id>nexus-snapshots</id>
-          <name>Nexus Snapshots</name>
-          <url>http://nexus:8081/repository/maven-snapshots/</url>
-          <releases>
-            <enabled>false</enabled>
-          </releases>
-          <snapshots>
-            <enabled>true</enabled>
-            <updatePolicy>always</updatePolicy>
-          </snapshots>
+          <id>central</id>
+          <url>http://nexus:8081/repository/maven-public/</url>
+          <releases><enabled>true</enabled></releases>
+          <snapshots><enabled>true</enabled></snapshots>
         </repository>
       </repositories>
-
       <pluginRepositories>
         <pluginRepository>
-          <id>nexus-releases</id>
-          <name>Nexus Plugin Releases</name>
-          <url>http://nexus:8081/repository/maven-releases/</url>
-          <releases>
-            <enabled>true</enabled>
-            <updatePolicy>never</updatePolicy>
-          </releases>
-          <snapshots>
-            <enabled>false</enabled>
-          </snapshots>
-        </pluginRepository>
-
-        <pluginRepository>
-          <id>nexus-snapshots</id>
-          <name>Nexus Plugin Snapshots</name>
-          <url>http://nexus:8081/repository/maven-snapshots/</url>
-          <releases>
-            <enabled>false</enabled>
-          </releases>
-          <snapshots>
-            <enabled>true</enabled>
-            <updatePolicy>always</updatePolicy>
-          </snapshots>
+          <id>central</id>
+          <url>http://nexus:8081/repository/maven-public/</url>
+          <releases><enabled>true</enabled></releases>
+          <snapshots><enabled>true</enabled></snapshots>
         </pluginRepository>
       </pluginRepositories>
     </profile>
