@@ -11,6 +11,11 @@
       <password>NEXUS_PASS_PLACEHOLDER</password>
     </server>
     <server>
+      <id>central</id>
+      <username>NEXUS_USER_PLACEHOLDER</username>
+      <password>NEXUS_PASS_PLACEHOLDER</password>
+    </server>
+    <server>
       <id>nexus-releases</id>
       <username>NEXUS_USER_PLACEHOLDER</username>
       <password>NEXUS_PASS_PLACEHOLDER</password>
@@ -23,7 +28,6 @@
   </servers>
 
   <mirrors>
-    <!-- Catch-all mirror for all repositories -->
     <mirror>
       <id>nexus</id>
       <mirrorOf>*</mirrorOf>
@@ -32,7 +36,6 @@
       <blocked>false</blocked>
     </mirror>
 
-    <!-- Explicitly override Maven's built-in default HTTP blocker -->
     <mirror>
       <id>maven-default-http-blocker</id>
       <mirrorOf>external:dummy:*</mirrorOf>
@@ -47,7 +50,7 @@
       <id>nexus</id>
       <repositories>
         <repository>
-          <id>central</id>
+          <id>nexus</id>
           <url>http://nexus:8081/repository/maven-public/</url>
           <releases><enabled>true</enabled></releases>
           <snapshots><enabled>true</enabled></snapshots>
@@ -55,7 +58,7 @@
       </repositories>
       <pluginRepositories>
         <pluginRepository>
-          <id>central</id>
+          <id>nexus</id>
           <url>http://nexus:8081/repository/maven-public/</url>
           <releases><enabled>true</enabled></releases>
           <snapshots><enabled>true</enabled></snapshots>
