@@ -11,7 +11,7 @@
         <version>4.1.0</version>
         <relativePath/>
     </parent>
-
+    
     <groupId>buy01</groupId>
     <artifactId>cart_service</artifactId>
     <version>0.0.1-SNAPSHOT</version>

@@ -14,10 +14,10 @@
     </parent>
 
     <groupId>buy01</groupId>
-    <artifactId>gateway_service</artifactId>
-    <!-- <version>0.0.1-SNAPSHOT</version> -->
-    <version>0.0.1</version>
-    <name>gateway_service</name>
+<artifactId>gateway_service</artifactId>
+<!-- Update version from 0.0.1 to 0.0.1-SNAPSHOT -->
+<version>0.0.1-SNAPSHOT</version>
+<name>gateway_service</name>
    <distributionManagement>
     <repository>
         <id>nexus-releases</id>
