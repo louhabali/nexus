@@ -346,31 +346,32 @@ pipeline {
         }
 
         stage('Browser E2E tests') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/playwright:v1.54.1-jammy'
-                    args '-u root --entrypoint="" --network 01e_com_default'
-                    reuseNode true
-                }
-            }
-            environment {
-                PLAYWRIGHT_BASE_URL = 'https://frontend:8443'
-            }
-            steps {
-                sh '''
-                    set -e
-                    cd client
-                    npm ci --legacy-peer-deps --no-audit --no-fund
-                    npx playwright install --with-deps
-                    PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" npx playwright test --config=playwright.config.ts --reporter=line
-                '''
-            }
-            post {
-                always {
-                    archiveArtifacts allowEmptyArchive: true, artifacts: 'client/playwright-report/**,client/test-results/**', fingerprint: true
-                }
-            }
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.54.1-jammy'
+            args '-u root --entrypoint="" --network 01e_com_default'
+            reuseNode true
         }
+    }
+    environment {
+        PLAYWRIGHT_BASE_URL = 'https://frontend:8443'
+        // Prevents Playwright from attempting to download browser binaries
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = '1'
+    }
+    steps {
+        sh '''
+            set -e
+            cd client
+            npm ci --legacy-peer-deps --no-audit --no-fund
+            PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" npx playwright test --config=playwright.config.ts --reporter=line
+        '''
+    }
+    post {
+        always {
+            archiveArtifacts allowEmptyArchive: true, artifacts: 'client/playwright-report/**,client/test-results/**', fingerprint: true
+        }
+    }
+}
 
         stage('Stop application stack') {
             steps {
