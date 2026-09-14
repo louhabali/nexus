@@ -182,28 +182,28 @@ pipeline {
         }
 
         stage('Deploy Maven Artifacts to Nexus') {
-            when {
-                expression {
-                    return env.BRANCH_NAME == 'pipeline' || env.GIT_BRANCH == 'origin/pipeline' || env.GIT_BRANCH?.endsWith('pipeline')
-                }
-            }
-            steps {
-                sh '''
-                    set -e
-                    # Deploy all 6 microservices to Nexus
-                    for service in ${JAVA_SERVICES}; do
-                        echo "=========================================="
-                        echo "Deploying ${service} artifacts to Nexus..."
-                        echo "=========================================="
-                        (cd "$service" && ./mvnw deploy -DskipTests)
-                    done
-
-                    echo "=========================================="
-                    echo "✅ All Maven artifacts deployed successfully!"
-                    echo "=========================================="
-                '''
-            }
+    when {
+        expression {
+            return env.BRANCH_NAME == 'pipeline' || env.GIT_BRANCH == 'origin/pipeline' || env.GIT_BRANCH?.endsWith('pipeline')
         }
+    }
+    steps {
+        sh '''
+            set -e
+            # Deploy all 6 microservices using injected Nexus settings
+            for service in ${JAVA_SERVICES}; do
+                echo "=========================================="
+                echo "Deploying ${service} artifacts to Nexus..."
+                echo "=========================================="
+                (cd "$service" && ./mvnw -s "$HOME/.m2/settings.xml" deploy -DskipTests)
+            done
+
+            echo "=========================================="
+            echo "✅ All Maven artifacts deployed successfully!"
+            echo "=========================================="
+        '''
+    }
+}
 
         stage('Push Docker Images to Nexus Registry') {
             when {
