@@ -14,7 +14,7 @@
     
     <groupId>buy01</groupId>
     <artifactId>cart_service</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>cart_service</name>
     <description>Cart Service for buy01</description>
 

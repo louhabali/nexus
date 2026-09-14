@@ -10,7 +10,7 @@
     </parent>
     <groupId>buy01</groupId>
     <artifactId>order_service</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>order_service</name>
     <description>Order Service for buy01</description>
 
