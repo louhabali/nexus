@@ -162,27 +162,24 @@ pipeline {
         }
 
        stage('Build Artifacts & Container Images') {
-            environment {
-                    DOCKER_BUILDKIT = '1'
-                    COMPOSE_DOCKER_CLI_BUILD = '1'
-            }
-            steps {
-                echo 'Building production JAR files concurrently...'
+    environment {
+        DOCKER_BUILDKIT = '1'
+        COMPOSE_DOCKER_CLI_BUILD = '1'
+    }
+    steps {
+        echo 'Building production JAR files via Nexus proxy...'
+        sh '''
+            set -e
+            for dir in ${JAVA_SERVICES}; do
+                echo "==> Packaging ${dir}"
+                (cd "$dir" && ./mvnw -s "$HOME/.m2/settings.xml" clean package -DskipTests -T 1C)
+            done
+        '''
 
-                sh '''
-                    set -e
-                    for dir in ${JAVA_SERVICES}; do
-                        echo "==> Packaging ${dir}"
-                        # Added -s flag to explicitly point to the injected settings.xml
-                        (cd "$dir" && ./mvnw -s "$HOME/.m2/settings.xml" package -DskipTests -T 1C) &
-                    done
-                    wait
-                '''
-
-                echo 'Building Docker container images...'
-                sh '${COMPOSE} build'
-            }
-        }
+        echo 'Building Docker container images from target JARs...'
+        sh '${COMPOSE} build'
+    }
+}
 
         stage('Deploy Maven Artifacts to Nexus') {
             when {
