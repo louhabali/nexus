@@ -16,7 +16,6 @@ pipeline {
         EMAIL2          = 'ismailichi29@gmail.com'
         EMAIL3          = 'xxx@gmail.com'
         SONAR_HOST_URL  = 'http://sonarqube:9000'
-        // JAVA_SERVICES   = 'gateway_service user_service product_service media_service cart_service'
         JAVA_SERVICES   = 'gateway_service user_service product_service media_service cart_service order_service'
         JAVA_SERVICES_IMAGES   = 'gateway user-service product-service media-service cart-service order-service'
         FRONTEND_PORT   = '8443'
@@ -36,47 +35,35 @@ pipeline {
         stage('Checkout & Setup Env') {
             steps {
                 checkout scm
-                // withCredentials([file(credentialsId: '01e-com-env-file', variable: 'ENV_FILE')]) {
-                //     sh 'cp "$ENV_FILE" .env'
-                // }
-                // steps {
-                //     checkout scm
 
-                    withCredentials([
-            file(credentialsId: '01e-com-env-file', variable: 'ENV_FILE'),
-            file(credentialsId: 'nexus-settings', variable: 'NEXUS_SETTINGS_FILE'),
-            usernamePassword(
-                credentialsId: 'nexus-credentials',
-                usernameVariable: 'NEXUS_USER',
-                passwordVariable: 'NEXUS_PASS'
-            )
-        ]) {
-                        sh '''
-                echo "Preparing application environment..."
-                cp "$ENV_FILE" .env
+                withCredentials([
+                    file(credentialsId: '01e-com-env-file', variable: 'ENV_FILE'),
+                    file(credentialsId: 'nexus-settings', variable: 'NEXUS_SETTINGS_FILE'),
+                    usernamePassword(
+                        credentialsId: 'nexus-credentials',
+                        usernameVariable: 'NEXUS_USER',
+                        passwordVariable: 'NEXUS_PASS'
+                    )
+                ]) {
+                    sh '''
+                        echo "Preparing application environment..."
+                        cp "$ENV_FILE" .env
 
-                echo "Preparing Maven Nexus configuration..."
-                mkdir -p "$HOME/.m2"
+                        echo "Preparing Maven Nexus configuration..."
+                        mkdir -p "$HOME/.m2"
 
-                cp "$NEXUS_SETTINGS_FILE" "$HOME/.m2/settings.xml"
+                        cp "$NEXUS_SETTINGS_FILE" "$HOME/.m2/settings.xml"
 
-                sed -i \
-                    -e "s/NEXUS_USER_PLACEHOLDER/$NEXUS_USER/g" \
-                    -e "s/NEXUS_PASS_PLACEHOLDER/$NEXUS_PASS/g" \
-                    "$HOME/.m2/settings.xml"
+                        sed -i \
+                            -e "s/NEXUS_USER_PLACEHOLDER/$NEXUS_USER/g" \
+                            -e "s/NEXUS_PASS_PLACEHOLDER/$NEXUS_PASS/g" \
+                            "$HOME/.m2/settings.xml"
 
-                chmod 600 "$HOME/.m2/settings.xml"
+                        chmod 600 "$HOME/.m2/settings.xml"
 
-                echo "Maven settings installed at:"
-                echo "$HOME/.m2/settings.xml"
-            '''
-
-                //echo "Nexus Maven configuration prepared."
-                // echo "Verifying Maven effective settings..."
-                // ./gateway_service/mvnw help:effective-settings \
-                //     -Doutput="$WORKSPACE/effective-settings.xml"
-
-        // }
+                        echo "Maven settings installed at:"
+                        echo "$HOME/.m2/settings.xml"
+                    '''
                 }
             }
         }
@@ -126,7 +113,6 @@ pipeline {
                     reuseNode true
                 }
             }
-            //
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('SonarQube') {
@@ -161,25 +147,39 @@ pipeline {
             }
         }
 
-       stage('Build Artifacts & Container Images') {
-    environment {
-        DOCKER_BUILDKIT = '1'
-        COMPOSE_DOCKER_CLI_BUILD = '1'
-    }
-    steps {
-        echo 'Building production JAR files via Nexus proxy...'
-        sh '''
-            set -e
-            for dir in ${JAVA_SERVICES}; do
-                echo "==> Packaging ${dir}"
-                (cd "$dir" && ./mvnw -s "$HOME/.m2/settings.xml" clean package -DskipTests -T 1C)
-            done
-        '''
+        stage('Build Artifacts & Container Images') {
+            environment {
+                DOCKER_BUILDKIT = '1'
+                COMPOSE_DOCKER_CLI_BUILD = '1'
+            }
+            steps {
+                echo 'Building production JAR files via Nexus proxy...'
+                sh '''
+                    set -e
+                    for dir in ${JAVA_SERVICES}; do
+                        echo "==> Packaging ${dir}"
+                        (cd "$dir" && ./mvnw -s "$HOME/.m2/settings.xml" clean package -DskipTests -T 1C)
+                    done
+                '''
 
-        echo 'Building Docker container images from target JARs...'
-        sh '${COMPOSE} build'
-    }
-}
+                echo 'Authenticating with Nexus Docker Registry before building images...'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-registry-credentials',
+                        usernameVariable: 'DOCKER_REGISTRY_USER',
+                        passwordVariable: 'DOCKER_REGISTRY_PASS'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+                        echo "${DOCKER_REGISTRY_PASS}" | docker login -u "${DOCKER_REGISTRY_USER}" --password-stdin localhost:8091
+                        
+                        echo 'Building Docker container images from target JARs...'
+                        ${COMPOSE} build
+                    '''
+                }
+            }
+        }
 
         stage('Deploy Maven Artifacts to Nexus') {
             when {
@@ -188,115 +188,89 @@ pipeline {
                 }
             }
             steps {
-                // withCredentials([
-                //                     usernamePassword(
-                //                     credentialsId: 'nexus-credentials',
-                //                     usernameVariable: 'NEXUS_USERNAME',
-                //                     passwordVariable: 'NEXUS_PASSWORD'
-                //                     ),
-                //                     file(
-                //                     credentialsId: 'nexus-settings',
-                //                     variable: 'NEXUS_SETTINGS_FILE'
-                //                     )
-                //                         ]) {
-                    // sh '''
-                    //     set -e
-
-                    //     echo "=========================================="
-                    //     echo "Preparing Maven settings.xml..."
-                    //     echo "=========================================="
-
-                    //     mkdir -p ~/.m2
-                    //     cp "$NEXUS_SETTINGS_FILE" ~/.m2/settings.xml
-
-                    //     # Replace placeholders in the uploaded settings.xml
-                    //     sed -i "s|NEXUS_USER_PLACEHOLDER|${NEXUS_USERNAME}|g" ~/.m2/settings.xml
-                    //     sed -i "s|NEXUS_PASS_PLACEHOLDER|${NEXUS_PASSWORD}|g" ~/.m2/settings.xml
-                    // '''
-                    sh '''
-                        set -e
-                        # Deploy all 6 microservices to Nexus
-                        for service in ${JAVA_SERVICES}; do
-                            echo "=========================================="
-                            echo "Deploying ${service} artifacts to Nexus..."
-                            echo "=========================================="
-                            (cd "$service" && ./mvnw deploy -DskipTests)
-                        done
-
+                sh '''
+                    set -e
+                    # Deploy all 6 microservices to Nexus
+                    for service in ${JAVA_SERVICES}; do
                         echo "=========================================="
-                        echo "✅ All Maven artifacts deployed successfully!"
+                        echo "Deploying ${service} artifacts to Nexus..."
                         echo "=========================================="
-                    '''
-                                        // }
+                        (cd "$service" && ./mvnw deploy -DskipTests)
+                    done
+
+                    echo "=========================================="
+                    echo "✅ All Maven artifacts deployed successfully!"
+                    echo "=========================================="
+                '''
             }
         }
 
         stage('Push Docker Images to Nexus Registry') {
-    when {
-        expression {
-            return env.BRANCH_NAME == 'pipeline' || env.GIT_BRANCH == 'origin/pipeline' || env.GIT_BRANCH?.endsWith('pipeline')
+            when {
+                expression {
+                    return env.BRANCH_NAME == 'pipeline' || env.GIT_BRANCH == 'origin/pipeline' || env.GIT_BRANCH?.endsWith('pipeline')
+                }
+            }
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-registry-credentials',
+                        usernameVariable: 'DOCKER_REGISTRY_USER',
+                        passwordVariable: 'DOCKER_REGISTRY_PASS'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+
+                        echo "=========================================="
+                        echo "Logging into Nexus Docker Registry..."
+                        echo "=========================================="
+
+                        NEXUS_IP=localhost
+                        echo "Nexus resolved to: ${NEXUS_IP}"
+
+                        # Login using credentials injected by Jenkins
+                        echo "${DOCKER_REGISTRY_PASS}" | docker login -u "${DOCKER_REGISTRY_USER}" --password-stdin ${NEXUS_IP}:8091
+
+                        echo "=========================================="
+                        echo "Tagging and pushing Docker images..."
+                        echo "=========================================="
+
+                        # Push microservices
+                        for service in ${JAVA_SERVICES_IMAGES}; do
+                            SERVICE_IMAGE="${APP_NAME}-${service}"
+                            NEXUS_REGISTRY="${NEXUS_IP}:8091"
+                            IMAGE_TAG="${NEXUS_REGISTRY}/${SERVICE_IMAGE}:${BUILD_NUMBER}"
+                            LATEST_TAG="${NEXUS_REGISTRY}/${SERVICE_IMAGE}:latest"
+
+                            docker tag "${SERVICE_IMAGE}:latest" "${IMAGE_TAG}"
+                            docker tag "${SERVICE_IMAGE}:latest" "${LATEST_TAG}"
+
+                            docker push "${IMAGE_TAG}"
+                            docker push "${LATEST_TAG}"
+                        done
+
+                        # Push frontend image
+                        FRONTEND_IMAGE="01e_com-frontend"
+                        NEXUS_REGISTRY="${NEXUS_IP}:8091"
+                        FRONTEND_TAG="${NEXUS_REGISTRY}/${FRONTEND_IMAGE}:${BUILD_NUMBER}"
+                        FRONTEND_LATEST="${NEXUS_REGISTRY}/${FRONTEND_IMAGE}:latest"
+
+                        docker tag "${FRONTEND_IMAGE}:latest" "${FRONTEND_TAG}"
+                        docker tag "${FRONTEND_IMAGE}:latest" "${FRONTEND_LATEST}"
+
+                        docker push "${FRONTEND_TAG}"
+                        docker push "${FRONTEND_LATEST}"
+
+                        echo "=========================================="
+                        echo "✅ All Docker images pushed successfully!"
+                        echo "=========================================="
+
+                        docker logout ${NEXUS_IP}:8091
+                    '''
+                }
+            }
         }
-    }
-    steps {
-        withCredentials([
-            usernamePassword(
-                credentialsId: 'docker-registry-credentials',
-                usernameVariable: 'DOCKER_REGISTRY_USER',
-                passwordVariable: 'DOCKER_REGISTRY_PASS'
-            )
-        ]) {
-            sh '''
-                set -e
-
-                echo "=========================================="
-                echo "Logging into Nexus Docker Registry..."
-                echo "=========================================="
-
-                NEXUS_IP=localhost
-                echo "Nexus resolved to: ${NEXUS_IP}"
-
-                # Login using credentials injected by Jenkins
-                echo "${DOCKER_REGISTRY_PASS}" | docker login -u "${DOCKER_REGISTRY_USER}" --password-stdin ${NEXUS_IP}:8091
-
-                echo "=========================================="
-                echo "Tagging and pushing Docker images..."
-                echo "=========================================="
-
-                # Push microservices
-                for service in ${JAVA_SERVICES_IMAGES}; do
-                    SERVICE_IMAGE="${APP_NAME}-${service}"
-                    NEXUS_REGISTRY="${NEXUS_IP}:8091"
-                    IMAGE_TAG="${NEXUS_REGISTRY}/${SERVICE_IMAGE}:${BUILD_NUMBER}"
-                    LATEST_TAG="${NEXUS_REGISTRY}/${SERVICE_IMAGE}:latest"
-
-                    docker tag "${SERVICE_IMAGE}:latest" "${IMAGE_TAG}"
-                    docker tag "${SERVICE_IMAGE}:latest" "${LATEST_TAG}"
-
-                    docker push "${IMAGE_TAG}"
-                    docker push "${LATEST_TAG}"
-                done
-
-                # Push frontend image
-                FRONTEND_IMAGE="01e_com-frontend"
-                NEXUS_REGISTRY="${NEXUS_IP}:8091"
-                FRONTEND_TAG="${NEXUS_REGISTRY}/${FRONTEND_IMAGE}:${BUILD_NUMBER}"
-                FRONTEND_LATEST="${NEXUS_REGISTRY}/${FRONTEND_IMAGE}:latest"
-
-                docker tag "${FRONTEND_IMAGE}:latest" "${FRONTEND_TAG}"
-                docker tag "${FRONTEND_IMAGE}:latest" "${FRONTEND_LATEST}"
-
-                docker push "${FRONTEND_TAG}"
-                docker push "${FRONTEND_LATEST}"
-
-                echo "=========================================="
-                echo "✅ All Docker images pushed successfully!"
-                echo "=========================================="
-
-                docker logout ${NEXUS_IP}:8091
-            '''
-        }
-    }
-}
 
         stage('Start app stack for E2E') {
             steps {
@@ -310,66 +284,64 @@ pipeline {
         }
 
         stage('E2E readiness smoke check') {
-            // Start the compose stack and wait for frontend + gateway
-            // to become reachable before running browser E2E tests.
             steps {
                 echo "Running the services stack from ${DEPLOY_DIR}..."
 
                 sh '''
-        set -e
+                    set -e
 
-        mkdir -p "${DEPLOY_DIR}"
+                    mkdir -p "${DEPLOY_DIR}"
 
-        cp docker-compose.yml "${DEPLOY_DIR}/"
-        cp .env "${DEPLOY_DIR}/.env"
+                    cp docker-compose.yml "${DEPLOY_DIR}/"
+                    cp .env "${DEPLOY_DIR}/.env"
 
-        cd "${DEPLOY_DIR}"
+                    cd "${DEPLOY_DIR}"
 
-        ${COMPOSE} up -d --remove-orphans
-        ${COMPOSE} ps
+                    ${COMPOSE} up -d --remove-orphans
+                    ${COMPOSE} ps
 
-        echo "Waiting for the app to become reachable for E2E tests..."
+                    echo "Waiting for the app to become reachable for E2E tests..."
 
-        for i in $(seq 1 40); do
-            echo "Readiness check ${i}/40..."
+                    for i in $(seq 1 40); do
+                        echo "Readiness check ${i}/40..."
 
-            frontend_status=$(docker run --rm --network "${APP_NETWORK}" \
-                curlimages/curl:8.10.1 -k -sS -o /dev/null -w '%{http_code}' \
-                --max-time 10 "${E2E_BASE_URL}" || true)
-            gateway_status=$(docker run --rm --network "${APP_NETWORK}" \
-                curlimages/curl:8.10.1 -k -sS -o /dev/null -w '%{http_code}' \
-                --max-time 10 "https://gateway:${GATEWAY_PORT}" || true)
+                        frontend_status=$(docker run --rm --network "${APP_NETWORK}" \
+                            curlimages/curl:8.10.1 -k -sS -o /dev/null -w '%{http_code}' \
+                            --max-time 10 "${E2E_BASE_URL}" || true)
+                        gateway_status=$(docker run --rm --network "${APP_NETWORK}" \
+                            curlimages/curl:8.10.1 -k -sS -o /dev/null -w '%{http_code}' \
+                            --max-time 10 "https://gateway:${GATEWAY_PORT}" || true)
 
-            echo "Frontend HTTP status: ${frontend_status}"
-            echo "Gateway HTTP status: ${gateway_status}"
+                        echo "Frontend HTTP status: ${frontend_status}"
+                        echo "Gateway HTTP status: ${gateway_status}"
 
-            case "${frontend_status}" in
-                2*) frontend_ready=true ;;
-                *) frontend_ready=false ;;
-            esac
+                        case "${frontend_status}" in
+                            2*) frontend_ready=true ;;
+                            *) frontend_ready=false ;;
+                        esac
 
-            case "${gateway_status}" in
-                2*|3*|4*) gateway_ready=true ;;
-                *) gateway_ready=false ;;
-            esac
+                        case "${gateway_status}" in
+                            2*|3*|4*) gateway_ready=true ;;
+                            *) gateway_ready=false ;;
+                        esac
 
-            if [ "${frontend_ready}" = true ] && [ "${gateway_ready}" = true ]; then
-                echo "Frontend and gateway are reachable."
-                echo "E2E environment is ready."
+                        if [ "${frontend_ready}" = true ] && [ "${gateway_ready}" = true ]; then
+                            echo "Frontend and gateway are reachable."
+                            echo "E2E environment is ready."
 
-                exit 0
-            fi
+                            exit 0
+                        fi
 
-            sleep 5
-        done
+                        sleep 5
+                    done
 
-        echo "Timed out waiting for frontend/gateway to respond."
+                    echo "Timed out waiting for frontend/gateway to respond."
 
-        echo "Final Docker Compose status:"
-        ${COMPOSE} ps
+                    echo "Final Docker Compose status:"
+                    ${COMPOSE} ps
 
-        exit 1
-    '''
+                    exit 1
+                '''
             }
         }
 
@@ -399,15 +371,17 @@ pipeline {
                 }
             }
         }
+
         stage('Stop application stack') {
             steps {
                 sh '''
-                ${COMPOSE} down --remove-orphans
-                ${COMPOSE} ps
-                echo "E2E tests finished. Stopping the application stack to pass to Deployment"
-            '''
+                    ${COMPOSE} down --remove-orphans
+                    ${COMPOSE} ps
+                    echo "E2E tests finished. Stopping the application stack to pass to Deployment"
+                '''
             }
         }
+
         stage('Debug Env') {
             steps {
                 sh 'echo "BRANCH_NAME: ${BRANCH_NAME}"'
@@ -424,7 +398,6 @@ pipeline {
                         expression { env.GIT_BRANCH?.endsWith('main') }
                     }
 
-                    // Never deploy from a scheduled SonarQube scan.
                     not {
                         triggeredBy 'TimerTrigger'
                     }
@@ -445,8 +418,7 @@ pipeline {
             }
         }
     }
-    // test
-    //trigger
+
     post {
         always {
             sh 'rm -f .env'
