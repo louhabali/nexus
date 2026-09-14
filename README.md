@@ -1,387 +1,180 @@
-# 01E-COM - E-Commerce Microservices Platform
+# 01E-COM Microservices Infrastructure & CI/CD Pipeline
 
-01E-COM is a modern e-commerce platform built using a microservices architecture. The application provides secure authentication, product management, image uploading, and API gateway routing while demonstrating scalable backend development using Spring Boot and Angular.
+A robust, enterprise-grade e-commerce backend built with **Spring Boot** and **Angular**, powered by a fully automated **Jenkins** CI/CD pipeline, **Nexus Repository Manager** for artifact/Docker hosting, and end-to-end **Playwright** testing.
 
 ---
 
-# Architecture
+## 🏗️ Architecture Overview
+
+The system consists of six Spring Boot microservices, an Angular single-page frontend application, and a localized infrastructure stack for artifact storage, code quality analysis, and container orchestration.
 
 ```
-                        +------------------+
-                        |   Angular 19     |
-                        |      Client      |
-                        +--------+---------+
-                                 |
-                                 |
-                          HTTPS (SSL)
-                                 |
-                          Nginx Reverse Proxy
-                                 |
-                          HTTPS (SSL)
-                                 |
-                        Spring Cloud Gateway
-                                 |
-        --------------------------------------------------
-        |                     |                          |
-        |                     |                          |
-  User Service         Product Service          Media Service
-        |                     |                          |
-     MongoDB/redis             MongoDB                 File Storage
-        |               
-      Kafka  <----------------------->  Product Service
-```
-
----
-
-# Features
-
-- User Registration
-- User Login using JWT Authentication
-- Role-based Authorization
-- Product Management
-- Product Image Upload
-- User Profile Management
-- Secure API Gateway
-- HTTPS Support
-- Kafka Event Communication
-- Dockerized Services
-- Responsive Angular Frontend
-
----
-
-# Technologies
-
-## Backend
-
-- Java 21
-- Spring Boot
-- Spring Security
-- Spring Cloud Gateway
-- Spring Data MongoDB
-- Apache Kafka
-- Maven
-
-## Frontend
-
-- Angular 19
-- TypeScript
-- Tailwind CSS
-- RxJS
-
-## Database
-
-- MongoDB
-
-## DevOps
-
-- Docker
-- Docker Compose
-- Nginx
-- SSL Certificates
-
----
-
-# Project Structure
-
-```
-01E-COM/
-
-│
-├── gateway-service/
-│
-├── user-service/
-│
-├── product-service/
-│
-├── media-service/
-│
-├── client/
-│
-├── docker-compose.yml
-│
-└── README.md
+                    ┌──────────────────────────────────────────────┐
+                    │            Jenkins CI/CD Pipeline             │
+                    └──────────────────────┬───────────────────────┘
+                                           │
+         ┌─────────────────────────────────┼─────────────────────────────────┐
+         │                                 │                                 │
+         ▼                                 ▼                                 ▼
+┌───────────────────┐            ┌───────────────────┐            ┌───────────────────┐
+│ Nexus Repositories│            │ Code Quality Gate │            │  E2E Test Suite   │
+│ - maven-snapshots │            │ - SonarQube       │            │ - Playwright      │
+│ - maven-releases  │            │ - JaCoCo Coverage │            │ - Headless Chrome │
+│ - docker-hosted   │            └───────────────────┘            └───────────────────┘
+│ - docker-proxy    │
+└────────┬──────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                             Application Stack (Docker)                              │
+│                                                                                     │
+│  ┌────────────────────────┐    ┌──────────────────────┐    ┌─────────────────────┐  │
+│  │    gateway_service     │    │     user_service     │    │   product_service   │  │
+│  │      (Port 8089)       │    └──────────────────────┘    └─────────────────────┘  │
+│  └───────────┬────────────┘    ┌──────────────────────┐    ┌─────────────────────┐  │
+│              │                 │    media_service     │    │    cart_service     │  │
+│              ▼                 └──────────────────────┘    └─────────────────────┘  │
+│  ┌────────────────────────┐                                ┌─────────────────────┐  │
+│  │    Angular Frontend    │                                │    order_service    │  │
+│  │      (Port 8443)       │                                └─────────────────────┘  │
+│  └────────────────────────┘                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-# Microservices
+## 🚀 Microservices Breakdown
 
-## Gateway Service
-
-Responsibilities
-
-- Single entry point
-- JWT validation
-- Request routing
-- HTTPS termination
-- CORS configuration
-
-Routes
-
-```
-api/auth/**
-api/products/**
-api/media/**
-api/uploads/**
-```
+| Service Name | Description | Build Artifact |
+| :--- | :--- | :--- |
+| **`gateway_service`** | Spring Cloud API Gateway handling routing and SSL termination | JAR / Docker Image |
+| **`user_service`** | User management, authentication, and authorization | JAR / Docker Image |
+| **`product_service`** | Catalog, product inventory, and category management | JAR / Docker Image |
+| **`media_service`** | Asset storage and image processing | JAR / Docker Image |
+| **`cart_service`** | Session shopping cart management | JAR / Docker Image |
+| **`order_service`** | Order processing and workflow management | JAR / Docker Image |
+| **`client`** | Angular frontend user interface | Static Build / Docker Image |
 
 ---
 
-## User Service
+## 📦 Artifact & Dependency Strategy (Nexus)
 
-Responsibilities
+Nexus acts as the single source of truth for both Maven dependencies and Docker container images, running on non-root user permissions (`nexus` system user).
 
-- Registration
-- Login
-- JWT generation
-- User Profile
-- Kafka Producer
+### 1. Maven Repositories
+* **`maven-snapshots`**: Receives development builds (`0.0.1-SNAPSHOT`).
+* **`maven-releases`**: Holds immutable, production-ready release versions (`0.0.1`).
+* **`maven-public`**: Acts as a proxy for external Maven Central dependencies, caching JARs locally to accelerate pipeline execution.
 
-Database
-
-MongoDB
-
-redis
+### 2. Docker Registries (`port: 8091`)
+* **`docker-hosted`**: Stores custom microservice images built by the Jenkins pipeline.
+* **`docker-proxy`**: Serves as a pull-through cache for public base images (e.g., `eclipse-temurin`, `node`) from Docker Hub to avoid rate limiting and ensure build resilience.
+* **`docker-group`**: Aggregates `docker-hosted` and `docker-proxy` under a single endpoint.
 
 ---
 
-## Product Service
+## 🔄 Continuous Integration & Deployment (Jenkins)
 
-Responsibilities
+The Jenkins pipeline (`Jenkinsfile`) automates quality checks, testing, artifact publishing, and container deployment.
 
-- CRUD Products
-- Product Search
-- Product Images
-- Kafka Consumer
+### Pipeline Stages
 
-Database
+1. **Checkout & Setup Env**: Injects Maven `settings.xml` and environment secrets into the workspace.
+2. **Parallel Automated Testing**:
+   * **Angular Tests**: Executes frontend unit tests with headless Chrome.
+   * **Java Unit Tests**: Runs `./mvnw test jacoco:report` across all 6 microservices in parallel.
+3. **SonarQube Analysis & Quality Gate**: Scans Java and TypeScript code for coverage, bugs, and security vulnerabilities, enforcing an automated Quality Gate.
+4. **Build Artifacts & Container Images**: Compiles executable JAR files and builds production Docker images.
+5. **Deploy Maven Artifacts to Nexus**: Publishes snapshot/release JARs to Nexus using `./mvnw deploy`.
+6. **Push Docker Images to Nexus Registry**: Tags and pushes all service container images to `localhost:8091`.
+7. **E2E Readiness Check**: Brings up the Docker Compose stack and performs health checks on the API Gateway and Frontend.
+8. **Browser E2E Tests**: Executes Playwright tests inside an isolated container (`mcr.microsoft.com/playwright:v1.54.1-jammy`) using pre-baked browsers.
+9. **Deploy Application**: Automatically deploys the verified stack to the target environment on `main` branch merges.
 
-MongoDB
+---
+## 📸 Visual Documentation & Evidence
+
+The setup, execution, and artifact publishing are documented with screenshots located in `docs/screenshots/`:
+
+### 1. Nexus Configuration & Repositories
+* **All Repositories Overview:** `docs/screenshots/allrepos.png`  
+  ![All Repositories](docs/screenshots/allrepos.png)
+
+* **Maven Repositories:**
+  * **Maven Central (`mc`):** `docs/screenshots/mc.png`  
+    ![Maven Central](docs/screenshots/mc.png)
+  * **Maven Public (`mp`):** `docs/screenshots/mp.png`  
+    ![Maven Public](docs/screenshots/mp.png)
+  * **Maven Releases (`mr`):** `docs/screenshots/mr.png`  
+    ![Maven Releases](docs/screenshots/mr.png)
+  * **Maven Snapshots (`ms`):** `docs/screenshots/ms.png`  
+    ![Maven Snapshots](docs/screenshots/ms.png)
+
+* **Docker Registries:**
+  * **Docker Hosted (`dh`):** `docs/screenshots/dh.png`  
+    ![Docker Hosted](docs/screenshots/dh.png)
+  * **Docker Proxy (`dp`):** `docs/screenshots/dp.png`  
+    ![Docker Proxy](docs/screenshots/dp.png)
+  * **Docker Group (`dg`):** `docs/screenshots/dg.png`  
+    ![Docker Group](docs/screenshots/dg.png)
 
 ---
 
-## Media Service
-
-Responsibilities
-
-- Upload Images
-- Store Files
-- Serve Uploaded Files
-
----
-
-# Authentication
-
-JWT is generated after successful login.
-
-The Angular application stores the JWT and attaches it to every authenticated request.
-
-Gateway validates every incoming token before forwarding requests to internal services.
+### 2. Pipeline Execution & Integration
+* **Nexus Connection:** `docs/screenshots/linkingwithnexus.png`  
+  ![Linking with Nexus](docs/screenshots/linkingwithnexus.png)
+* **Push Artifacts to Nexus:** `docs/screenshots/pushtonexus.png`  
+  ![Push to Nexus](docs/screenshots/pushtonexus.png)
+* **Jenkins Pipeline Execution:** `docs/screenshots/pipeline.png`  
+  ![Pipeline Execution](docs/screenshots/pipeline.png)
 
 ---
 
-# Kafka Communication
-
-Current Event
-
-```
-UserDeletedEvent
-```
-
-Flow
-
-```
-User Service
-      |
-      | Publish Event
-      |
-    Kafka
-      |
-      | Consume Event
-      |
-Product Service
-```
-
-This allows services to communicate asynchronously without direct dependencies.
-
----
-# Cache 
-- redis
----
-# Security
-
-- JWT Authentication
-- HTTPS
-- Spring Security
-- Gateway Authorization
-- CORS Protection
-
+### 3. Quality & Testing
+* **SonarQube Quality Gate:** `docs/screenshots/quality.png`  
+  ![Quality Gate](docs/screenshots/quality.png)
+* **SonarQube Logs:** `docs/screenshots/qualitylogs.png`  
+  ![Quality Logs](docs/screenshots/qualitylogs.png)
+* **Playwright E2E Tests:** `docs/screenshots/e2etests.png`  
+  ![E2E Tests](docs/screenshots/e2etests.png)
 ---
 
-# Image Upload Flow
+## 🛠️ Local Development & Setup
 
-```
-Angular
+### Prerequisites
+* JDK 21
+* Node.js 20+ & npm
+* Docker & Docker Compose
+* Local Nexus 3 instance
 
-    |
-nginx
-    |
-POST api/media/upload
-
-    |
-
-Gateway
-
-    |
-
-Media Service
-
-    |
-
-uploads/
-
-    |
-
-Image URL
-
-    |
-
-Angular displays image
-```
-
----
-
-# Running the Project
-
-## Clone
+### 1. Build Microservices Locally
+To build all Java microservices using the custom Nexus proxy settings:
 
 ```bash
-git clone https://github.com/louhabali/buy01.git
-
-cd 01E-COM
+for service in gateway_service user_service product_service media_service cart_service order_service; do
+  (cd "$service" && ./mvnw clean package -DskipTests)
+done
 ```
 
----
-
-## Start Docker
+### 2. Start Application Stack
+Bring up the entire environment using Docker Compose:
 
 ```bash
-docker compose up --build
+docker compose -p 01e_com up -d --build
 ```
 
----
+Access the application endpoints:
+* **Frontend UI:** `https://localhost:8443`
+* **API Gateway:** `https://localhost:8089`
 
-## Frontend
+### 3. Run E2E Tests Manually
+Navigate to the client directory and run Playwright tests:
 
 ```bash
-cd frontend
-
-npm install
-
-ng serve --ssl --proxy-config proxy.conf.json
+cd client
+npm ci --legacy-peer-deps
+PLAYWRIGHT_BASE_URL="https://localhost:8443" npx playwright test
 ```
 
 ---
 
-# Services
-
-| Service | Port |
-|----------|------|
-| Angular/nginx | 8433 |
-| Gateway | 8089 |
-| User Service | 8081 |
-| Product Service | 8082 |
-| Media Service | 8083 |
-| MongoDB | 27017 |
-| Kafka | 9092 |
-
----
-
-# API Overview
-
-## Authentication
-
-```
-POST api/auth/register
-
-POST api/auth/login
-
-GET api/auth/profile
-```
-
----
-
-## Products
-
-```
-GET api/products
-
-GET api/products/{id}
-
-POST api/products
-
-PUT api/products/{id}
-
-DELETE api/products/{id}
-```
-
----
-
-## Media
-
-```
-POST api/media/upload
-
-GET api/uploads/{filename}
-```
-
----
-
-# Folder Description
-
-## frontend
-
-Angular application.
-
-## gateway-service
-
-Spring Cloud Gateway responsible for routing requests.
-
-## user-service
-
-Authentication and user management.
-
-## product-service
-
-Handles products and consumes Kafka events.
-
-## media-service
-
-Stores uploaded images.
-
----
-
-# Future Improvements
-
-- Order Service
-- Payment Service
-- Shopping Cart
-- Wishlist
-- Reviews
-- Search Service
-- Email Notifications
-- Kubernetes Deployment
-- CI/CD Pipeline
-- Monitoring with Prometheus & Grafana
-
----
-
-# Author
-
-Ali Louhab
-
----
-
-# License
-
-This project is developed for educational purposes and demonstrates a complete microservices-based e-commerce platform using Spring Boot, Angular, Kafka, MongoDB, Docker, Nginx, and Spring Cloud Gateway.
