@@ -1,5 +1,5 @@
 # Stage 1: Build Angular application
-FROM node:20-alpine AS build
+FROM localhost:8091/library/node:20-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
@@ -9,7 +9,7 @@ COPY . .
 RUN npm run build -- --configuration production
 
 # Stage 2: Serve application with Nginx
-FROM nginx:alpine
+FROM localhost:8091/library/nginx:alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY certs/ /etc/nginx/certs/
 
