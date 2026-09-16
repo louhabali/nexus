@@ -184,7 +184,7 @@ pipeline {
         stage('Deploy Maven Artifacts to Nexus') {
     when {
         expression {
-            return env.BRANCH_NAME == 'pipeline' || env.GIT_BRANCH == 'origin/pipeline' || env.GIT_BRANCH?.endsWith('pipeline')
+            return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH?.endsWith('main')
         }
     }
     steps {
@@ -208,7 +208,7 @@ pipeline {
         stage('Push Docker Images to Nexus Registry') {
             when {
                 expression {
-                    return env.BRANCH_NAME == 'pipeline' || env.GIT_BRANCH == 'origin/pipeline' || env.GIT_BRANCH?.endsWith('pipeline')
+                    return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH?.endsWith('main')
                 }
             }
             steps {
