@@ -15,7 +15,7 @@
 
     <groupId>buy01</groupId>
     <artifactId>product_service</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.1-SNAPSHOT</version>
 
     <distributionManagement>
     <repository>
